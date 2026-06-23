@@ -1,64 +1,197 @@
 # Omnissiah
 
-A generator that scaffolds a personalized, bounded MCP assistant repo: a baked-in operating contract plus a runnable MCP server skeleton you can extend.
+Generate your own bounded MCP assistant. Answer about eight questions and Omnissiah writes a complete repo for a personal assistant you control: a baked-in operating contract plus a runnable MCP server skeleton you can extend. The generated repo works with Claude Code, Codex, or any MCP host.
 
-You answer about eight questions and Omnissiah writes a complete repo for your own assistant: a governance layer (operating contract, assistant profile, host config) and a provider-agnostic MCP server with one real example tool. The generated repo works with Claude Code, Codex, or any MCP host.
+It exists because an assistant that can act on your email, calendar, and tasks is powerful and easy to get wrong. Most setups give you raw capability with no posture, or lock things down so hard the assistant cannot do useful work. Omnissiah ships the middle ground: capable enough to act, conservative enough to leave tracks, with every safety default turned on and explained.
 
-## The framing (kept light)
+## Requirements
 
-The Omnissiah is the machine-god the Adeptus Mechanicus serves: every machine has a spirit, and you honor it by knowing exactly what it does. That is the whole borrowed idea. An assistant that can act on your email, calendar, and tasks is a machine with a spirit. You do not appease it with vibes. You give it a written contract, a narrow tool surface, and an audit trail, and you understand every line of it. The name is a joke with a point. The point is the rest of this document.
+- [uv](https://docs.astral.sh/uv/) (handles Python and dependencies)
+- Python 3.10 or newer
+- An MCP host to run the result (Claude Code, Codex, or similar). Optional for generating; required for using the assistant.
 
-## Where it comes from
-
-Omnissiah is modeled on Wintermute, a private RevOps assistant boundary. Wintermute is one person's hand-written MCP server with a tightly scoped tool surface and a contract that says how the assistant behaves across fresh sessions. Omnissiah takes Wintermute's strengths and strips its private contents so you can stand up your own:
-
-1. A concrete operating contract: modes, a control loop, and a safety/reversibility posture.
-2. A scoped, auditable MCP tool boundary instead of ambient authority.
-3. The safe-but-permissive balance: capable enough to act, conservative enough to leave tracks.
-
-## Who it is for
-
-Friends who want their own Wintermute. People who already use an MCP host and want an assistant that can do real work (draft email, manage a calendar, drain a capture inbox) without handing it a blank check. You should be comfortable editing Markdown and Python; the generated repo is yours to shape, not a black box.
-
-## What it produces
-
-A new repo named for your assistant, containing:
-
-- `OPERATING-CONTRACT.md`: how the assistant behaves, with the safe-but-permissive defaults baked in and each one explained inline.
-- `ASSISTANT-PROFILE.md`, `SYSTEM-MAP.md`, `README.md`: who it serves, what it is, where everything lives.
-- `AGENTS.md` and `CLAUDE.md`: host guidance you paste into Claude Code, Codex, or another host.
-- A runnable Python MCP server (`<slug>/mcp/server.py`) with `health_check` and a real local notes provider that demonstrates list, read, append, and draft-outbound.
-- `pyproject.toml`, `.env.example`, tests, and setup docs for wiring real providers.
-
-The notes provider is intentionally small and real. It shows the boundary in working code: reads list and fetch, one append is an auditable local write, and draft-outbound creates a draft record and never sends. Email, calendar, and chat tools are scaffolded as commented stubs gated on the answers you gave, so disabled categories do not ship dead tools.
-
-## Quickstart
+## 30-second example
 
 ```
-git clone <omnissiah repo>
+git clone https://github.com/jwmarcus/omnissiah
 cd omnissiah
 uv run omnissiah
 ```
 
-Answer the questions, then:
+Omnissiah asks about eight questions (every prompt has a default, so you can press Enter through them):
 
 ```
-cd ../<your-assistant-slug>
-uv run <your-assistant-slug>-mcp
+Omnissiah generator: answer a few questions to scaffold your assistant repo.
+Assistant display name [Omnissiah]: Jarvis
+Principal name (the human it serves) [Magos]: Tony
+Principal role (one line) [a systems operator and builder]: an engineer and founder
+Principal work domains (comma list) [engineering, ops, personal logistics]: product, hardware, personal
+Task system (where commitments live) [Asana]: Linear
+Chat surface (or 'none') [Signal]: none
+Timezone (IANA, e.g. America/New_York) [America/New_York]: America/Los_Angeles
+Scaffold email tools? [Y/n]: y
+Scaffold calendar tools? [Y/n]: y
+Scaffold chat tools? [Y/n]: n
 ```
 
-Register it in `~/.claude.json` and you have a working assistant boundary. Full walkthrough, including the non-interactive `--defaults` and `--answers` paths, is in [QUICKSTART.md](QUICKSTART.md).
+It writes a repo and tells you exactly what to do next:
+
+```
+Done. Wrote 29 paths under ../jarvis
+
+Next steps:
+  cd ../jarvis
+  git init
+  cp .env.example .env   # then fill in real values
+  uv sync                # install mcp[cli] and the package
+  uv run jarvis-mcp      # start the MCP server on stdio
+  uv run python -m unittest discover -s tests   # run the skeleton tests
+```
+
+The assistant name becomes your Python package and console script (`jarvis-mcp`), derived as a valid identifier. The example notes provider runs with no credentials, so `uv run jarvis-mcp` works immediately, before you wire up anything real.
+
+## What you get
+
+A new repo named for your assistant. With the answers above it looks like this:
+
+```
+jarvis/
+  OPERATING-CONTRACT.md          # how the assistant behaves (the source of truth)
+  ASSISTANT-PROFILE.md           # who it serves and what it is
+  SYSTEM-MAP.md                  # one line per file in the repo
+  README.md                      # the generated repo's own readme
+  AGENTS.md                      # repo guidelines for coding assistants
+  CLAUDE.md                      # host guidance to paste into Claude Code / Codex
+  pyproject.toml                 # console script: jarvis-mcp
+  .env.example                   # documented placeholders, no real secrets
+  .gitignore                     # excludes .env, var/, secrets/, caches
+  jarvis/
+    mcp/
+      server.py                  # the MCP server: health_check + the notes tools
+    integrations/
+      common.py                  # env loading and local paths
+      providers/
+        base.py                  # provider-agnostic interfaces (the shape to implement)
+        notes.py                 # the runnable example provider (local JSON file)
+  docs/
+    integrations/SETUP.md        # how to wire real email/calendar/chat providers
+    playbooks/README.md          # opt-in domain playbook loading rules
+  tests/
+    test_server_tools.py         # stdlib unittest, no network, no credentials
+    test_providers.py
+```
+
+### The example tool surface
+
+The generated server registers five working tools out of the box:
+
+| Tool | What it does | What it demonstrates |
+|---|---|---|
+| `health_check` | Reports config and which tool categories are enabled. Read-only. | Safe introspection |
+| `notes_list` | List stored notes. | Read |
+| `notes_read` | Fetch one note by id. | Read (list, then read) |
+| `notes_append` | Append a note to a local JSON file. | An auditable local write |
+| `notes_draft_outbound` | Create a draft outbound record. Never sends. | Drafts over sends |
+
+The notes provider is small and real on purpose: it shows the safe-but-permissive boundary in working code you can read in a minute. Email, calendar, and chat tools are scaffolded as commented stubs gated on the answers you gave. A category you turn off ships no live tool, no enabled-category wiring, and no environment variable; all that remains is a one-line note on how to add it later. Choosing `chat: no` above leaves the generated server with exactly the five notes-and-health tools and no chat surface.
+
+### What the contract looks like
+
+The behavioral source of truth is the generated `OPERATING-CONTRACT.md`. Every safe-but-permissive default is baked in and carries a one-line inline rationale, so you meet each one in context and can tune it knowingly:
+
+```markdown
+## Safety And Reversibility
+
+- Do not run destructive filesystem or git commands unless Tony explicitly asks
+  for that operation. (Why: a backup is a recovery path, not a license to delete.)
+- Prefer drafts, previews, and reviewable artifacts for anything that leaves the
+  local machine. (Why: outbound actions are the ones you cannot take back.)
+- Verify high-stakes input (dates, money, health, legal, external-system state,
+  current facts) against a source before acting on it. (Why: these are exactly
+  the inputs where being wrong is expensive.)
+```
+
+The contract is filled in with your principal's name, role, domains, task system, and timezone throughout.
+
+## Register it in your MCP host
+
+After generating, point your host at the console script. For Claude Code, add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "jarvis": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/jarvis", "jarvis-mcp"]
+    }
+  }
+}
+```
+
+Restart the host and the tools appear. Then read your generated `OPERATING-CONTRACT.md` into the session (or paste the generated `CLAUDE.md`), and the assistant operates under the contract.
+
+## Non-interactive generation
+
+Skip the prompts for testing, scripting, or a one-shot setup.
+
+```
+uv run omnissiah --defaults --output ../demo-assistant    # built-in demo defaults
+uv run omnissiah --answers answers.json --output ../my-assistant
+```
+
+`answers.json` keys are the template variables, lowercased, without braces:
+
+```json
+{
+  "assistant_name": "Jarvis",
+  "principal_name": "Tony",
+  "principal_role": "an engineer and founder",
+  "principal_domains": "product, hardware, personal",
+  "task_system": "Linear",
+  "chat_surface": "none",
+  "timezone": "America/Los_Angeles",
+  "tools_email": true,
+  "tools_calendar": true,
+  "tools_chat": false
+}
+```
+
+`assistant_slug` is derived from `assistant_name`; the date is stamped from your machine. Omnissiah refuses to write into a non-empty directory unless you pass `--force`. The full walkthrough is in [QUICKSTART.md](QUICKSTART.md).
 
 ## Design stance: defaults ON, and explained
 
-Omnissiah ships the safe-but-permissive middle-ground defaults turned on, not off. Most scaffolding tools either hand you raw capability with no posture, or lock everything down so hard the assistant cannot do useful work. Both fail. An assistant that cannot act is a worse notepad; an assistant that acts freely will eventually send the wrong email or delete the wrong file.
+Omnissiah ships the middle-ground defaults turned on, not off. An assistant that cannot act is a worse notepad; an assistant that acts freely will eventually send the wrong email or delete the wrong file. The balance is a small set of habits:
 
-The middle ground is a small set of habits: drafts over sends, read a record before you act on it, single calendar events over fragile recurrence, verify high-stakes facts, one capture surface that drains, no destructive operations unless you ask, secrets stay local, scoped tools over ambient authority, move when the next action is clear. These ship enabled and each carries a one-line inline rationale in the generated contract so you can tune them knowingly instead of discovering them by accident.
+- Drafts over sends; the human sends.
+- Read a record before you act on it.
+- Single calendar events over fragile recurrence for short protocols.
+- Verify high-stakes facts (dates, money, health, legal, external state).
+- One capture surface that drains, not a pile of inboxes.
+- No destructive filesystem or git operations unless you ask.
+- Secrets stay local, never in commits or chat.
+- Scoped MCP tools over broad ambient authority.
+- Move when the next action is clear; ask one sharp question when it is not.
+- Concrete reporting, no flattery standing in for a status.
+- Commitments and durable decisions outlive the chat.
 
-Omnissiah lets you override surface details (name, role, which tool categories scaffold) but does not give you a switch to silently disable the safety posture. If you want the assistant to send mail directly or run destructive git, you edit the contract by hand. That edit is deliberate, visible in your git history, and yours to own.
+You can override surface details (name, role, which tool categories scaffold), but there is no switch that silently disables the safety posture. If you want the assistant to send mail directly or run destructive git, you edit the contract by hand. That edit is deliberate, visible in your git history, and yours to own.
 
-For the reasoning behind each default, the failure modes on both sides, and how to tune each one, read [docs/DEFAULTS-RATIONALE.md](docs/DEFAULTS-RATIONALE.md). After you generate, the authoritative behavioral document for your assistant is its own generated `OPERATING-CONTRACT.md`.
+Each default's reasoning, the failure modes on both sides, and how to tune it are in [docs/DEFAULTS-RATIONALE.md](docs/DEFAULTS-RATIONALE.md).
 
-## Writing style
+## Where it comes from
 
-No em dashes anywhere, in this repo or in generated output. Direct, concrete, no flattery or hype. The renderer is stdlib-only (no Jinja); plain `{{VAR}}` substitution.
+Omnissiah is modeled on Wintermute, a private personal-assistant boundary: one person's hand-written MCP server with a tightly scoped tool surface and a contract that says how the assistant behaves across fresh sessions. Omnissiah takes those strengths (a concrete operating contract, a scoped and auditable tool boundary, the safe-but-permissive balance) and strips the private contents so you can stand up your own.
+
+The name is borrowed from the machine-god of the Adeptus Mechanicus, who is honored by knowing exactly what each machine does. That is the whole idea: an assistant that can act is a machine with a spirit, and you do not appease it with vibes. You give it a written contract, a narrow tool surface, and an audit trail, and you understand every line.
+
+## How it works under the hood
+
+The renderer is stdlib-only (no Jinja). Templates live in `templates/` and use plain `{{VAR}}` substitution plus line and inline `{{#IF TOOLS_*}} ... {{/IF}}` conditionals. The engine walks the template tree, so adding a `.tmpl` file is all it takes to add a generated file. If you want to change the generator itself, open this folder in Claude Code or Codex; `CLAUDE.md` here orients you, and `docs/dev/BUILD-SPEC.md` is the internal contract.
+
+## Conventions
+
+No em dashes anywhere, in this repo or in generated output. Direct, concrete writing, no flattery or hype.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
