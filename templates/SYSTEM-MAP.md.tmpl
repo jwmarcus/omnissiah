@@ -1,0 +1,48 @@
+# {{ASSISTANT_NAME}} System Map
+
+A short tour of the repo. Every line points at one directory or file.
+
+## Top-level docs
+
+- `README.md`: project overview, tool list, setup, and run commands.
+- `SYSTEM-MAP.md`: this file.
+- `ASSISTANT-PROFILE.md`: who {{ASSISTANT_NAME}} serves and what kind of assistant it is.
+- `OPERATING-CONTRACT.md`: the binding assistant behavior contract for {{ASSISTANT_NAME}}, Claude Code, and Codex sessions.
+- `AGENTS.md`: repository guidelines (structure, build/test commands, style, security).
+- `CLAUDE.md`: host-level guidance you can paste into your assistant's project or global config.
+- `pyproject.toml`: project metadata, dependencies, and the `{{ASSISTANT_SLUG}}-mcp` console script.
+- `.gitignore`: keeps secrets, local state, and work products out of git.
+- `.env.example`: documented placeholders for provider credentials and config.
+
+## MCP server
+
+- `{{ASSISTANT_SLUG}}/__init__.py`: package marker.
+- `{{ASSISTANT_SLUG}}/mcp/__init__.py`: package marker for the MCP subpackage.
+- `{{ASSISTANT_SLUG}}/mcp/server.py`: the MCP server. Defines `health_check` and the notes tools as thin wrappers over providers; email, calendar, and chat tools are scaffolded as gated stubs.
+
+## Provider integrations
+
+- `{{ASSISTANT_SLUG}}/integrations/__init__.py`: package marker.
+- `{{ASSISTANT_SLUG}}/integrations/common.py`: shared helpers (env loading, local paths).
+- `{{ASSISTANT_SLUG}}/integrations/providers/__init__.py`: package marker.
+- `{{ASSISTANT_SLUG}}/integrations/providers/base.py`: provider-agnostic Protocols and ABCs for the capability categories, with interface sketches for email, calendar, and chat providers.
+- `{{ASSISTANT_SLUG}}/integrations/providers/notes.py`: the runnable example provider, backed by a local JSON file under `var/`.
+
+## Setup docs
+
+- `docs/integrations/SETUP.md`: how to wire real providers and register the MCP server.
+
+## Playbooks
+
+- `docs/playbooks/README.md`: opt-in domain playbook loading rules.
+
+## Tests
+
+- `tests/test_server_tools.py`: coverage for the MCP tool wrappers using fakes.
+- `tests/test_providers.py`: coverage for the notes provider contract and path safety.
+
+## Local-only (gitignored)
+
+- `secrets/`: service-account keys and local tokens.
+- `var/`: runtime state, the notes JSON store, and logs.
+- `work/`: session work products with a temporary lifecycle.

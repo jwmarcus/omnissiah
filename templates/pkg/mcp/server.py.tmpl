@@ -1,0 +1,283 @@
+"""{{ASSISTANT_NAME}} MCP server.
+
+Exposes a small, scoped set of tools over MCP. The point is a bounded boundary,
+not ambient authority: read tools are separate from act tools, and outbound is
+modeled as a draft, never a send.
+
+This skeleton ships one REAL capability, a local note store (the notes_* tools),
+so a friend has a working example to extend. Email, calendar, and chat tools are
+present only as commented stubs, gated so disabled categories ship no dead tools.
+
+Run via:
+    uv run {{ASSISTANT_SLUG}}-mcp
+
+Or register it in your MCP host (see docs/integrations/SETUP.md).
+"""
+
+from {{ASSISTANT_SLUG}}.integrations.common import load_env
+
+# Load local .env before anything reads configuration.
+load_env()
+
+from mcp.server.fastmcp import FastMCP
+
+from {{ASSISTANT_SLUG}}.integrations.providers.notes import JsonNoteStore
+from {{ASSISTANT_SLUG}}.integrations.providers.base import Note
+
+INSTRUCTIONS = """
+{{ASSISTANT_NAME}} is {{PRINCIPAL_NAME}}'s bounded MCP-backed assistant
+({{ASSISTANT_TAGLINE}}), not the language model and not an unconstrained agent.
+{{PRINCIPAL_NAME}} is {{PRINCIPAL_ROLE}} working across {{PRINCIPAL_DOMAINS}}.
+
+Prefer explicit, auditable action through these tools over ambient authority.
+Use a list -> read -> act pattern: never act on a record without reading it
+first. Outbound is drafted, never sent: drafts are reviewable records and a
+human sends. Verify high-stakes input (dates, money, health, legal, external
+system state, current facts). Tasks and commitments live in {{TASK_SYSTEM}};
+durable decisions live in this repo. Capture is allowed to be messy but it
+drains; do not stand up a second inbox.
+
+When any tool returns an Error, call health_check first. health_check is
+read-only and safe.
+
+Communication must be concrete. Do not use flattery or approval language as a
+substitute for reporting actions, evidence, results, or open loops.
+""".strip()
+
+mcp = FastMCP("{{ASSISTANT_SLUG}}", instructions=INSTRUCTIONS)
+
+# Which tool categories were scaffolded at generation time. health_check
+# reports this so a friend can see the boundary without reading the source.
+ENABLED_CATEGORIES: list[str] = ["notes"]
+{{#IF TOOLS_EMAIL}}
+ENABLED_CATEGORIES.append("email")
+{{/IF}}
+{{#IF TOOLS_CALENDAR}}
+ENABLED_CATEGORIES.append("calendar")
+{{/IF}}
+{{#IF TOOLS_CHAT}}
+ENABLED_CATEGORIES.append("chat")
+{{/IF}}
+
+
+def _format_tool_error(error: Exception) -> str:
+    """Return a concise error string suitable for MCP tool output."""
+    return f"Error: {error}"
+
+
+def _note_store() -> JsonNoteStore:
+    """Return the local JSON-backed note store (creates var/ on demand)."""
+    return JsonNoteStore()
+
+
+def _format_note_line(note: Note) -> str:
+    """Format one note as a single list line."""
+    preview = note.text.replace("\n", " ").strip()
+    if len(preview) > 80:
+        preview = preview[:77] + "..."
+    extra = ""
+    if note.kind != "note":
+        to = note.meta.get("to", "")
+        target = f" to {to}" if to else ""
+        extra = f" [{note.kind}{target}]"
+    return f"- {note.id}  {note.created_at}{extra}  {preview}"
+
+
+# ============================================================================
+# Notes tools (the real, runnable example capability)
+# ============================================================================
+
+@mcp.tool()
+def notes_list(limit: int = 50, kind: str = "") -> str:
+    """List recent notes, newest first. Read-only (the list half).
+
+    Args:
+        limit: Maximum number of notes to return (default 50).
+        kind: Filter by record kind ("note" or "draft_outbound"). Empty returns
+            all kinds.
+    """
+    try:
+        notes = _note_store().list_notes(limit=limit, kind=kind)
+        if not notes:
+            return "No notes yet. Use notes_append to capture one."
+        lines = [f"## {len(notes)} note(s)"]
+        lines.extend(_format_note_line(n) for n in notes)
+        return "\n".join(lines)
+    except Exception as e:
+        return _format_tool_error(e)
+
+
+@mcp.tool()
+def notes_read(note_id: str) -> str:
+    """Read the full text of one note by id. Read-only (the read half).
+
+    Use notes_list first to get ids, then read a specific note here before
+    acting on it.
+
+    Args:
+        note_id: The note id from a prior notes_list call.
+    """
+    try:
+        note = _note_store().read_note(note_id)
+        if note is None:
+            return f"Note {note_id} not found."
+        lines = [
+            f"# {note.id}",
+            f"kind: {note.kind}",
+            f"created_at: {note.created_at}",
+        ]
+        if note.meta:
+            for key in sorted(note.meta):
+                lines.append(f"{key}: {note.meta[key]}")
+        lines.append("")
+        lines.append(note.text)
+        return "\n".join(lines)
+    except Exception as e:
+        return _format_tool_error(e)
+
+
+@mcp.tool()
+def notes_append(text: str) -> str:
+    """Append a new note to the local store. Auditable local write (the act half).
+
+    This is a real write: it lands in var/notes.json with an id and a UTC
+    timestamp. Nothing leaves the machine.
+
+    Args:
+        text: The note body to capture.
+    """
+    try:
+        note = _note_store().append_note(text)
+        return f"Note saved: {note.id} at {note.created_at}"
+    except Exception as e:
+        return _format_tool_error(e)
+
+
+@mcp.tool()
+def notes_draft_outbound(to: str, text: str, channel: str = "note") -> str:
+    """Create a DRAFT outbound record. Does NOT send.
+
+    Drafts over sends: this stores a reviewable record only. A human reviews it
+    (notes_read) and sends through the real channel. The skeleton has no send
+    path on purpose.
+
+    Args:
+        to: Intended recipient (email address, phone, handle, or label).
+        text: The draft message body.
+        channel: Intended channel ("note", "email", "chat"). Default "note".
+    """
+    try:
+        note = _note_store().draft_outbound(to=to, text=text, channel=channel)
+        return (
+            f"Draft saved (not sent): {note.id}\n"
+            f"to: {to}\n"
+            f"channel: {channel}\n"
+            f"Review with notes_read and send it yourself."
+        )
+    except Exception as e:
+        return _format_tool_error(e)
+
+
+# ============================================================================
+# Email tools (stubs)
+#
+# Gated by tools_email. To enable: implement EmailProvider (see
+# integrations/providers/base.py), add a module next to notes.py, and replace
+# these stubs with @mcp.tool() functions that call it. Keep list -> read -> act
+# and drafts-over-sends: create_draft, never auto-send.
+# ============================================================================
+{{#IF TOOLS_EMAIL}}
+# @mcp.tool()
+# def email_list_inbox(limit: int = 20) -> str:
+#     """List inbox messages (id, sender, subject, date, snippet). Read-only."""
+#     ...
+#
+# @mcp.tool()
+# def email_read(message_id: str) -> str:
+#     """Read one full message by id. Read this before archiving or replying."""
+#     ...
+#
+# @mcp.tool()
+# def email_reply_draft(message_id: str, body: str) -> str:
+#     """Create a reviewable reply draft. Does NOT send."""
+#     ...
+{{/IF}}
+
+
+# ============================================================================
+# Calendar tools (stubs)
+#
+# Gated by tools_calendar. To enable: implement CalendarProvider (see base.py)
+# and register read/create/delete tools here. Prefer batch-created single
+# events for short protocols (meds, travel, sprints) over fragile recurrence.
+# ============================================================================
+{{#IF TOOLS_CALENDAR}}
+# @mcp.tool()
+# def calendar_list_events(start_date: str = "", days: int = 7) -> str:
+#     """List events in a window. Read-only."""
+#     ...
+#
+# @mcp.tool()
+# def calendar_create_event(summary: str, start: str, end: str) -> str:
+#     """Create a single event. Confirm the target calendar first."""
+#     ...
+{{/IF}}
+
+
+# ============================================================================
+# Chat tools (stubs)
+#
+# Gated by tools_chat. Surface: {{CHAT_SURFACE}}. To enable: implement
+# ChatProvider (see base.py) and register tools here. Keep third-party outbound
+# reviewable (draft_message) until your relay policy explicitly permits sends.
+# ============================================================================
+{{#IF TOOLS_CHAT}}
+# @mcp.tool()
+# def chat_list_conversations() -> str:
+#     """List known conversations/groups on {{CHAT_SURFACE}}. Read-only."""
+#     ...
+#
+# @mcp.tool()
+# def chat_draft_message(to: str, text: str) -> str:
+#     """Stage an outbound {{CHAT_SURFACE}} message as a reviewable draft."""
+#     ...
+{{/IF}}
+
+
+# ============================================================================
+# Diagnostics
+# ============================================================================
+
+@mcp.tool()
+def health_check() -> str:
+    """Report local {{ASSISTANT_NAME}} configuration. Read-only and safe.
+
+    Confirms the note store path and reports which tool categories were
+    scaffolded into this server. Changes no external state.
+    """
+    try:
+        store = _note_store()
+        existing = store.path.exists()
+        count = len(store.list_notes(limit=0)) if existing else 0
+        lines = [
+            "## {{ASSISTANT_NAME}} health",
+            f"- assistant: {{ASSISTANT_NAME}} ({{ASSISTANT_SLUG}})",
+            f"- principal: {{PRINCIPAL_NAME}}",
+            f"- timezone: {{TIMEZONE}}",
+            f"- task system: {{TASK_SYSTEM}}",
+            f"- note store: {store.path} ({'present' if existing else 'not created yet'})",
+            f"- notes on file: {count}",
+            f"- tool categories enabled: {', '.join(ENABLED_CATEGORIES)}",
+        ]
+        return "\n".join(lines)
+    except Exception as e:
+        return _format_tool_error(e)
+
+
+def main() -> None:
+    """Run the {{ASSISTANT_NAME}} MCP server over stdio."""
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()

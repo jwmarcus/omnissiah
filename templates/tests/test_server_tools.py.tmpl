@@ -1,0 +1,76 @@
+"""Tests for the {{ASSISTANT_NAME}} MCP tool functions.
+
+Stdlib unittest only. No network, no creds, no real MCP transport: we call the
+tool functions directly. The note store is redirected to a temp directory via
+the VAR_DIR_ENV environment variable so the repo var/ is never touched.
+"""
+
+import os
+import tempfile
+import unittest
+
+from {{ASSISTANT_SLUG}}.integrations.common import VAR_DIR_ENV
+from {{ASSISTANT_SLUG}}.mcp import server
+
+
+class ServerToolsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self._prev = os.environ.get(VAR_DIR_ENV)
+        os.environ[VAR_DIR_ENV] = self._tmp.name
+
+    def tearDown(self) -> None:
+        if self._prev is None:
+            os.environ.pop(VAR_DIR_ENV, None)
+        else:
+            os.environ[VAR_DIR_ENV] = self._prev
+        self._tmp.cleanup()
+
+    def test_health_check_reports_categories(self) -> None:
+        out = server.health_check()
+        self.assertIn("{{ASSISTANT_NAME}} health", out)
+        self.assertIn("notes", out)
+        # notes is always enabled; the category line is always present.
+        self.assertIn("tool categories enabled:", out)
+        self.assertIn("notes", server.ENABLED_CATEGORIES)
+
+    def test_notes_list_empty(self) -> None:
+        out = server.notes_list()
+        self.assertIn("No notes yet", out)
+
+    def test_append_then_list_then_read(self) -> None:
+        appended = server.notes_append("ship the thing")
+        self.assertIn("Note saved", appended)
+        # id is the second whitespace-delimited token: "Note saved: <id> at ..."
+        note_id = appended.split(":", 1)[1].split()[0]
+
+        listing = server.notes_list()
+        self.assertIn(note_id, listing)
+
+        read = server.notes_read(note_id)
+        self.assertIn("ship the thing", read)
+
+    def test_read_missing(self) -> None:
+        self.assertIn("not found", server.notes_read("nope"))
+
+    def test_draft_outbound_does_not_send(self) -> None:
+        out = server.notes_draft_outbound(to="a@example.com", text="hello")
+        self.assertIn("not sent", out.lower())
+        self.assertIn("a@example.com", out)
+        # The draft is captured and visible under the draft kind.
+        drafts = server.notes_list(kind="draft_outbound")
+        self.assertIn("a@example.com", drafts)
+
+    def test_tools_are_registered_with_fastmcp(self) -> None:
+        # Confirms the @mcp.tool() decorator actually registered the tools.
+        import asyncio
+
+        tools = asyncio.run(server.mcp.list_tools())
+        names = {t.name for t in tools}
+        for expected in ("health_check", "notes_list", "notes_read",
+                         "notes_append", "notes_draft_outbound"):
+            self.assertIn(expected, names)
+
+
+if __name__ == "__main__":
+    unittest.main()

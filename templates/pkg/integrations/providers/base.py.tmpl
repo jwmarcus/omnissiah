@@ -1,0 +1,139 @@
+"""Provider-agnostic interfaces for {{ASSISTANT_NAME}}.
+
+The MCP server talks to capability interfaces, not to vendors. This keeps the
+tool boundary stable while a friend swaps in whatever backend they actually
+use (Gmail, Fastmail, Google Calendar, CalDAV, Signal, Slack, and so on).
+
+Only NoteStore is implemented in this skeleton (see notes.py). The email,
+calendar, and chat interfaces are sketched as commented Protocols below so the
+shape to implement is obvious. Implementing one means: write a class with these
+methods, then register its tools in mcp/server.py under the matching category.
+
+The safe-but-permissive posture lives in these signatures on purpose:
+  - read methods (list/read/get) are separate from act methods (append/create),
+    so the server can enforce list -> read -> act.
+  - outbound is modeled as a draft, never a send. draft_outbound returns a
+    record; a human sends. See OPERATING-CONTRACT.md.
+"""
+
+from dataclasses import dataclass, field
+from typing import Optional, Protocol, runtime_checkable
+
+
+@dataclass
+class Note:
+    """A single captured note or draft record.
+
+    kind distinguishes a plain note ("note") from an outbound draft
+    ("draft_outbound"). A draft is a reviewable record only; it is never sent.
+    """
+
+    id: str
+    kind: str
+    text: str
+    created_at: str
+    meta: dict = field(default_factory=dict)
+
+
+@runtime_checkable
+class NoteStore(Protocol):
+    """A local, auditable note store: the example capability.
+
+    Demonstrates the full list -> read -> act loop plus drafts-over-sends:
+      - list_notes / read_note are reads.
+      - append_note is a real local write (the act half).
+      - draft_outbound writes a DRAFT record only; nothing leaves the machine.
+    """
+
+    def list_notes(self, limit: int = 50, kind: str = "") -> list[Note]:
+        """Return recent notes, newest first. Read-only.
+
+        kind filters by record kind (e.g. "note" or "draft_outbound"); empty
+        means all kinds.
+        """
+        ...
+
+    def read_note(self, note_id: str) -> Optional[Note]:
+        """Return one note by id, or None if it does not exist. Read-only."""
+        ...
+
+    def append_note(self, text: str, meta: Optional[dict] = None) -> Note:
+        """Append a new note and return it. Auditable local write."""
+        ...
+
+    def draft_outbound(
+        self, to: str, text: str, channel: str = "note"
+    ) -> Note:
+        """Create a DRAFT outbound record only. Never sends.
+
+        Returns the stored draft (kind="draft_outbound") so a human can review
+        and send through the real channel. This is the in-skeleton model of
+        drafts-over-sends.
+        """
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Interface sketches for the other categories.
+#
+# These are intentionally commented out so the skeleton ships no dead code and
+# no unimplemented imports. To add a category: uncomment the relevant Protocol,
+# implement it in a new module next to notes.py, and register its tools in
+# mcp/server.py inside the matching tool-category block.
+#
+# Keep the read/act split and drafts-over-sends posture when you do.
+# ---------------------------------------------------------------------------
+
+# @runtime_checkable
+# class EmailProvider(Protocol):
+#     """Read inbox, read one message, create review drafts. Never auto-send."""
+#
+#     def list_inbox(self, limit: int = 20) -> list[dict]:
+#         """List inbox messages (id, sender, subject, date, snippet). Read."""
+#         ...
+#
+#     def read_message(self, message_id: str) -> dict:
+#         """Read one full message by id. Read; precedes any act on it."""
+#         ...
+#
+#     def create_draft(self, to: str, subject: str, body: str) -> dict:
+#         """Create a reviewable draft. Returns the draft; does NOT send."""
+#         ...
+#
+#     def archive(self, message_id: str) -> None:
+#         """Archive a message you have already read (list -> read -> act)."""
+#         ...
+
+
+# @runtime_checkable
+# class CalendarProvider(Protocol):
+#     """Read events, create/update/delete events. Prefer single events for
+#     short protocols over fragile recurrence."""
+#
+#     def list_events(self, start_date: str, days: int = 7) -> list[dict]:
+#         """List events in a window. Read-only."""
+#         ...
+#
+#     def create_event(
+#         self, summary: str, start: str, end: str, all_day: bool = False
+#     ) -> dict:
+#         """Create one event. For meds/travel/sprints, batch single events."""
+#         ...
+#
+#     def delete_event(self, event_id: str) -> None:
+#         """Delete an event you have confirmed by id."""
+#         ...
+
+
+# @runtime_checkable
+# class ChatProvider(Protocol):
+#     """Send a message over a chat surface ({{CHAT_SURFACE}}). Keep
+#     third-party outbound reviewable until policy explicitly permits sends."""
+#
+#     def list_conversations(self) -> list[dict]:
+#         """List known conversations/groups. Read-only."""
+#         ...
+#
+#     def draft_message(self, to: str, text: str) -> dict:
+#         """Stage an outbound message as a reviewable record. No auto-send."""
+#         ...

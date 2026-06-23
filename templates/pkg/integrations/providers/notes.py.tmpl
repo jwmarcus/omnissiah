@@ -1,0 +1,154 @@
+"""Runnable example provider for {{ASSISTANT_NAME}}: a local note store.
+
+Backed by a single JSON file under var/ (gitignored). No network, no creds.
+It exists to show the boundary working end to end, and to give a friend a
+concrete thing to copy when they implement a real provider.
+
+What it demonstrates:
+  - list -> read -> act: list_notes / read_note are reads; append_note writes.
+  - drafts over sends: draft_outbound stores a draft record and returns it.
+    Nothing is ever sent. A human reviews the draft and sends elsewhere.
+  - auditable local writes: every record gets an id and a UTC timestamp, and
+    the store is a plain JSON file you can inspect or diff by hand.
+"""
+
+import json
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+from {{ASSISTANT_SLUG}}.integrations.common import var_dir
+from {{ASSISTANT_SLUG}}.integrations.providers.base import Note
+
+# Record kinds.
+KIND_NOTE = "note"
+KIND_DRAFT = "draft_outbound"
+
+_STORE_FILENAME = "notes.json"
+
+
+def _utc_now_iso() -> str:
+    """Return the current UTC time as an ISO 8601 string."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _new_id() -> str:
+    """Return a short unique id for a note record."""
+    return uuid.uuid4().hex[:12]
+
+
+class JsonNoteStore:
+    """A NoteStore backed by a local JSON file.
+
+    The file is a JSON list of record dicts. Reads load and parse it; writes
+    load, append, and rewrite the whole file. This is fine for a personal
+    capture store and keeps the data trivially inspectable.
+    """
+
+    def __init__(self, path: Optional[Path] = None) -> None:
+        """Use path if given, else var/notes.json (var/ is created on demand)."""
+        self.path = path if path is not None else (var_dir() / _STORE_FILENAME)
+
+    # -- internal load/save -------------------------------------------------
+
+    def _load_raw(self) -> list[dict]:
+        """Load the raw record list from disk, or [] if the file is absent."""
+        if not self.path.exists():
+            return []
+        text = self.path.read_text(encoding="utf-8").strip()
+        if not text:
+            return []
+        data = json.loads(text)
+        if not isinstance(data, list):
+            raise ValueError(f"note store {self.path} is not a JSON list")
+        return data
+
+    def _save_raw(self, records: list[dict]) -> None:
+        """Write the record list to disk as formatted JSON."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(
+            json.dumps(records, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _to_note(record: dict) -> Note:
+        """Build a Note dataclass from a stored record dict."""
+        return Note(
+            id=record["id"],
+            kind=record.get("kind", KIND_NOTE),
+            text=record.get("text", ""),
+            created_at=record.get("created_at", ""),
+            meta=record.get("meta", {}),
+        )
+
+    @staticmethod
+    def _to_record(note: Note) -> dict:
+        """Build a JSON-serializable record dict from a Note."""
+        return {
+            "id": note.id,
+            "kind": note.kind,
+            "text": note.text,
+            "created_at": note.created_at,
+            "meta": note.meta,
+        }
+
+    # -- reads (the list -> read half) --------------------------------------
+
+    def list_notes(self, limit: int = 50, kind: str = "") -> list[Note]:
+        """Return up to limit notes, newest first. Read-only.
+
+        kind filters by record kind; empty returns all kinds.
+        """
+        records = self._load_raw()
+        notes = [self._to_note(r) for r in records]
+        if kind:
+            notes = [n for n in notes if n.kind == kind]
+        notes.sort(key=lambda n: n.created_at, reverse=True)
+        if limit and limit > 0:
+            notes = notes[:limit]
+        return notes
+
+    def read_note(self, note_id: str) -> Optional[Note]:
+        """Return one note by id, or None if not found. Read-only."""
+        for record in self._load_raw():
+            if record.get("id") == note_id:
+                return self._to_note(record)
+        return None
+
+    # -- writes (the act half) ----------------------------------------------
+
+    def append_note(self, text: str, meta: Optional[dict] = None) -> Note:
+        """Append a plain note and return it. Auditable local write."""
+        note = Note(
+            id=_new_id(),
+            kind=KIND_NOTE,
+            text=text,
+            created_at=_utc_now_iso(),
+            meta=dict(meta or {}),
+        )
+        records = self._load_raw()
+        records.append(self._to_record(note))
+        self._save_raw(records)
+        return note
+
+    def draft_outbound(self, to: str, text: str, channel: str = "note") -> Note:
+        """Store a DRAFT outbound record and return it. Never sends.
+
+        The draft carries its intended recipient and channel in meta so a human
+        can review and send it through the real system. This is the skeleton's
+        model of drafts-over-sends: the assistant prepares, the human sends.
+        """
+        meta = {"to": to, "channel": channel, "status": "draft"}
+        note = Note(
+            id=_new_id(),
+            kind=KIND_DRAFT,
+            text=text,
+            created_at=_utc_now_iso(),
+            meta=meta,
+        )
+        records = self._load_raw()
+        records.append(self._to_record(note))
+        self._save_raw(records)
+        return note

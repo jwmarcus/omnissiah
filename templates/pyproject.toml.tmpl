@@ -1,0 +1,19 @@
+[project]
+name = "{{ASSISTANT_SLUG}}"
+version = "0.1.0"
+description = "{{ASSISTANT_NAME}}: {{ASSISTANT_TAGLINE}}"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.27",
+]
+
+[project.scripts]
+# Run the MCP server over stdio: uv run {{ASSISTANT_SLUG}}-mcp
+{{ASSISTANT_SLUG}}-mcp = "{{ASSISTANT_SLUG}}.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["{{ASSISTANT_SLUG}}"]

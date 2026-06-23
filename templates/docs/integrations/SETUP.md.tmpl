@@ -1,0 +1,112 @@
+# {{ASSISTANT_NAME}} integration setup
+
+How to run the MCP server, register it with a host, and wire real providers.
+Generated {{GEN_DATE}}. Everything here is local; secrets stay on your machine
+and never go in commits, notes, or chat summaries.
+
+## 1. Install and run
+
+This repo uses `uv`. From the repo root:
+
+```
+uv sync
+uv run {{ASSISTANT_SLUG}}-mcp
+```
+
+That starts the MCP server over stdio. It will sit waiting for an MCP host to
+connect, which is correct: hosts speak to it, you do not type at it directly.
+
+To sanity-check without a host, run the tests:
+
+```
+uv run python -m unittest discover -s tests
+```
+
+## 2. What ships working
+
+The example capability is a local note store, backed by a JSON file under
+`var/` (gitignored). It exists so the boundary works end to end on day one and
+gives you a concrete pattern to copy.
+
+Tools:
+
+- `health_check` reports config and which tool categories are enabled. Read-only.
+- `notes_list` / `notes_read` are reads (the list then read half).
+- `notes_append` is a real, auditable local write (the act half).
+- `notes_draft_outbound` creates a DRAFT record only. It never sends. A human
+  reviews the draft and sends through the real channel. This is the skeleton's
+  model of drafts over sends; keep it when you add real providers.
+
+## 3. Register with a host
+
+### Claude Code
+
+Add a server entry to `~/.claude.json` (not `~/.claude/settings.json`, which is
+ignored for MCP servers):
+
+```json
+{
+  "mcpServers": {
+    "{{ASSISTANT_SLUG}}": {
+      "command": "uv",
+      "args": ["run", "{{ASSISTANT_SLUG}}-mcp"],
+      "cwd": "/absolute/path/to/{{ASSISTANT_SLUG}}"
+    }
+  }
+}
+```
+
+### Other MCP hosts
+
+Any MCP host that can launch a stdio server works. Point it at the same command
+(`uv run {{ASSISTANT_SLUG}}-mcp`) with the repo as the working directory.
+
+## 4. Configure local state
+
+Copy `.env.example` to `.env` and fill in what your real providers need. The
+note store needs nothing. To put the note store somewhere other than `var/`,
+set the `<SLUG>_VAR_DIR` env var (the exact name is `{{ASSISTANT_SLUG}}`
+uppercased plus `_VAR_DIR`).
+
+## 5. Add a real provider
+
+The MCP server talks to capability interfaces, not vendors. The shape to
+implement lives in `{{ASSISTANT_SLUG}}/integrations/providers/base.py`:
+`NoteStore` is implemented; `EmailProvider`, `CalendarProvider`, and
+`ChatProvider` are commented sketches.
+
+To add one, for example email:
+
+1. Implement the `EmailProvider` interface in a new module next to `notes.py`
+   (e.g. `{{ASSISTANT_SLUG}}/integrations/providers/email_gmail.py`).
+2. In `{{ASSISTANT_SLUG}}/mcp/server.py`, replace the commented email stubs
+   with real `@mcp.tool()` functions that call your provider.
+3. Keep the posture the skeleton ships with:
+   - list then read then act: never archive, label, or reply to a message you
+     have not read.
+   - drafts over sends: create a reviewable draft, never auto-send.
+   - verify high-stakes input: dates, money, health, legal, external state.
+4. Add tests under `tests/` using fakes only. No network, no real creds.
+
+## 6. Tool categories scaffolded in this repo
+
+Categories are turned on at generation time. This repo was generated with:
+
+{{#IF TOOLS_EMAIL}}
+- email: stubs present in `server.py`, gated and commented. Implement
+  `EmailProvider` to enable.
+{{/IF}}
+{{#IF TOOLS_CALENDAR}}
+- calendar: stubs present in `server.py`, gated and commented. Implement
+  `CalendarProvider` to enable. Prefer single events for short protocols
+  (meds, travel, sprints) over fragile recurrence.
+{{/IF}}
+{{#IF TOOLS_CHAT}}
+- chat: stubs present in `server.py`, gated and commented. Surface is
+  {{CHAT_SURFACE}}. Implement `ChatProvider` to enable, and keep third-party
+  outbound reviewable until your relay policy explicitly permits sends.
+{{/IF}}
+- notes: always on. The runnable example described above.
+
+Tasks and commitments belong in {{TASK_SYSTEM}}, not in this server. Durable
+technical decisions belong in this repo's docs.

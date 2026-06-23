@@ -1,0 +1,31 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+{{ASSISTANT_NAME}} is a Python MCP server and assistant boundary. Source lives in `{{ASSISTANT_SLUG}}/`: `{{ASSISTANT_SLUG}}/mcp/server.py` defines the tool surface, while `{{ASSISTANT_SLUG}}/integrations/` contains the provider modules and the provider-agnostic base interfaces. Tests live in `tests/` and use stdlib `unittest`. Setup docs live in `docs/integrations/`; durable context lives in `README.md`, `SYSTEM-MAP.md`, `ASSISTANT-PROFILE.md`, and `OPERATING-CONTRACT.md`. Opt-in domain playbooks live in `docs/playbooks/`; read one only when {{PRINCIPAL_NAME}} names its domain (see the loading rules in `docs/playbooks/README.md`). Keep runtime state in `var/` and credentials in `secrets/`. Task management lives in {{TASK_SYSTEM}} at the host level, not inside {{ASSISTANT_NAME}}.
+
+## Build, Test, and Development Commands
+
+- `uv run {{ASSISTANT_SLUG}}-mcp`: start the MCP server on stdio.
+- `uv run python -m unittest discover -s tests`: run the full test suite.
+- `uv run python -m compileall -q {{ASSISTANT_SLUG}}`: compile-check the package.
+
+## Coding Style & Naming Conventions
+
+Target Python 3.10+ and keep code dependency-light. Follow the existing style: 4-space indentation, dataclasses or simple provider classes where useful, type hints on boundaries, and thin MCP wrappers in `server.py`. Name tests `test_*.py`, classes `*Tests`, and methods `test_<behavior>`. Keep tool names stable and explicit, for example `notes_list` and `notes_append`.
+
+## Testing Guidelines
+
+Add focused `unittest` coverage for new tools, provider contracts, path safety, parsing, and behavior that should not regress. Prefer fakes and `unittest.mock.patch` over live provider calls. Do not require network or secret access in normal tests. Run the suite plus `compileall` before handoff.
+
+## Architecture & Operating Model
+
+Preserve the model in `OPERATING-CONTRACT.md`: capture first, compress into decisions or sessions, then execute through scoped tools. Outbound communication starts as drafts. Reads come before record-level actions (list then read then act). Do not broaden remote access or destructive actions without deliberate auth and audit design. Adding a new tool category is an explicit decision, not a side effect of adding a playbook or a provider.
+
+## Commit & Pull Request Guidelines
+
+Use short imperative commit summaries, for example `Add notes_draft_outbound tool`. Keep commits scoped to one coherent change. PRs should describe behavior changes, tests run, config or credential implications, and relevant docs. Do not commit secrets or session work products.
+
+## Security & Configuration Tips
+
+Read `OPERATING-CONTRACT.md` before changing assistant behavior, tool contracts, persistent context workflows, or connected-system configuration. Keep `.env`, service-account keys, allowlists, local state, and logs out of git. Prefer auditable actions: drafts over sends, scoped file edits, and no secrets in commits, docs, notes, or chat summaries.

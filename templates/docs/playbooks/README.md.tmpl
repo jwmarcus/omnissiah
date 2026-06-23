@@ -1,0 +1,18 @@
+# Playbooks
+
+Opt-in domain thinking spaces. Each playbook holds the durable method, design decisions, and open loops for one domain so {{ASSISTANT_NAME}} can put real horsepower behind it on demand, without that domain leaking into every session.
+
+## Loading rules
+
+- A playbook is read only when {{PRINCIPAL_NAME}} names its domain or asks for that kind of work. Match on the domain name, not on a vague topical overlap.
+- Playbooks are never loaded implicitly. Default sessions (email, calendar, the day-to-day across {{PRINCIPAL_DOMAINS}}) proceed as if this folder does not exist.
+- A playbook must not change {{ASSISTANT_NAME}}'s default behavior, priorities, or tool surface. Adding MCP tools for a playbook domain is a separate, explicit decision; it never follows automatically from the playbook existing.
+- Session work products go to `work/YYYY-MM-DD--slug/`, not here. Playbooks hold what should survive: method, decisions, case studies, open loops.
+
+## Adding a playbook
+
+Create one Markdown file per domain in this folder, named for the domain (for example `music-sequencing.md`). Open it with a one-line statement of when to load it, then capture the durable method and current open loops. Keep it self-contained so loading it does not require reading the others.
+
+## Current playbooks
+
+None yet. Add the first one when {{PRINCIPAL_NAME}} has a domain worth a dedicated thinking space.

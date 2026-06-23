@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated assistant repos
+# Omnissiah writes a friend's repo to an output dir; keep generated output
+# out of this repo's history. Use /out/ as the conventional local target,
+# and treat *.generated as a generated-artifact marker.
+/out/
+*.generated
+
+# Environment / local config
+.env
+
+# Editor / OS noise
+.DS_Store
+*.swp

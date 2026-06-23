@@ -1,0 +1,58 @@
+"""Shared utilities for {{ASSISTANT_NAME}} integrations.
+
+Stdlib-only. Two jobs: load local config from .env, and resolve local paths
+(the var/ directory where the notes example keeps its JSON store).
+
+Secrets stay local. Nothing here writes config into commits, notes, or chat.
+"""
+
+import os
+from pathlib import Path
+
+# Repo root is three levels up: <slug>/integrations/common.py -> repo root.
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+class IntegrationConfigError(RuntimeError):
+    """Raised when an integration is missing required local configuration."""
+
+
+def load_env() -> None:
+    """Load KEY=VALUE pairs from the repo-root .env into os.environ.
+
+    Existing environment variables win (setdefault), so a real shell export
+    is never clobbered by the file. Missing .env is fine: this is a no-op.
+    Lines starting with # and blank lines are ignored. Surrounding single or
+    double quotes around a value are stripped.
+    """
+    env_file = REPO_ROOT / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        os.environ.setdefault(key.strip(), value)
+
+
+# Env var that can override the var/ location, e.g. WINTERMUTE_VAR_DIR.
+VAR_DIR_ENV = "{{ASSISTANT_SLUG}}".upper() + "_VAR_DIR"
+
+
+def var_dir() -> Path:
+    """Return the local var/ directory, creating it if needed.
+
+    var/ is gitignored. It holds runtime state that must not enter git
+    history: the notes JSON store, draft records, and similar local data.
+    Override the location with the <SLUG>_VAR_DIR env var (see VAR_DIR_ENV).
+    """
+    override = os.environ.get(VAR_DIR_ENV, "").strip()
+    path = Path(override) if override else (REPO_ROOT / "var")
+    path.mkdir(parents=True, exist_ok=True)
+    return path

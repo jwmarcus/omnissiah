@@ -1,0 +1,89 @@
+"""Tests for the {{ASSISTANT_NAME}} example note provider.
+
+Stdlib unittest only. No network, no creds. Each test uses a throwaway temp
+directory so the repo var/ is never touched.
+"""
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from {{ASSISTANT_SLUG}}.integrations.providers.base import Note, NoteStore
+from {{ASSISTANT_SLUG}}.integrations.providers.notes import (
+    KIND_DRAFT,
+    KIND_NOTE,
+    JsonNoteStore,
+)
+
+
+class JsonNoteStoreTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "notes.json"
+        self.store = JsonNoteStore(path=self.path)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_satisfies_notestore_protocol(self) -> None:
+        # runtime_checkable Protocol: the example must match the interface.
+        self.assertIsInstance(self.store, NoteStore)
+
+    def test_empty_store_lists_nothing(self) -> None:
+        self.assertEqual(self.store.list_notes(), [])
+        self.assertFalse(self.path.exists())
+
+    def test_append_then_read(self) -> None:
+        note = self.store.append_note("buy milk")
+        self.assertIsInstance(note, Note)
+        self.assertEqual(note.kind, KIND_NOTE)
+        self.assertTrue(note.id)
+        self.assertTrue(note.created_at)
+
+        fetched = self.store.read_note(note.id)
+        self.assertIsNotNone(fetched)
+        self.assertEqual(fetched.text, "buy milk")
+
+    def test_read_missing_returns_none(self) -> None:
+        self.assertIsNone(self.store.read_note("does-not-exist"))
+
+    def test_list_is_newest_first(self) -> None:
+        a = self.store.append_note("first")
+        b = self.store.append_note("second")
+        ids = [n.id for n in self.store.list_notes()]
+        # Newest first: b appears before a.
+        self.assertEqual(ids[0], b.id)
+        self.assertIn(a.id, ids)
+
+    def test_list_limit(self) -> None:
+        for i in range(5):
+            self.store.append_note(f"note {i}")
+        self.assertEqual(len(self.store.list_notes(limit=2)), 2)
+
+    def test_draft_outbound_is_a_draft_not_a_send(self) -> None:
+        draft = self.store.draft_outbound(to="someone@example.com", text="hi")
+        self.assertEqual(draft.kind, KIND_DRAFT)
+        self.assertEqual(draft.meta.get("to"), "someone@example.com")
+        self.assertEqual(draft.meta.get("status"), "draft")
+        # The draft is persisted and readable, but there is no send path.
+        self.assertIsNotNone(self.store.read_note(draft.id))
+        self.assertFalse(hasattr(self.store, "send"))
+
+    def test_kind_filter(self) -> None:
+        self.store.append_note("plain")
+        self.store.draft_outbound(to="x@example.com", text="draft body")
+        notes_only = self.store.list_notes(kind=KIND_NOTE)
+        drafts_only = self.store.list_notes(kind=KIND_DRAFT)
+        self.assertEqual(len(notes_only), 1)
+        self.assertEqual(len(drafts_only), 1)
+        self.assertEqual(notes_only[0].kind, KIND_NOTE)
+        self.assertEqual(drafts_only[0].kind, KIND_DRAFT)
+
+    def test_persists_across_instances(self) -> None:
+        note = self.store.append_note("durable")
+        reopened = JsonNoteStore(path=self.path)
+        self.assertIsNotNone(reopened.read_note(note.id))
+
+
+if __name__ == "__main__":
+    unittest.main()
