@@ -37,7 +37,7 @@ Scaffold chat tools? [Y/n]: n
 It writes a repo and tells you exactly what to do next:
 
 ```
-Done. Wrote 29 paths under ../jarvis
+Done. Wrote 33 paths under ../jarvis
 
 Next steps:
   cd ../jarvis
@@ -76,10 +76,15 @@ jarvis/
   docs/
     integrations/SETUP.md        # how to wire real email/calendar/chat providers
     playbooks/README.md          # opt-in domain playbook loading rules
+  work/
+    README.md                    # the workbench convention (one folder per job)
+    YYYY-MM-DD--example/         # placeholder showing the YYYY-MM-DD--slug format
   tests/
     test_server_tools.py         # stdlib unittest, no network, no credentials
     test_providers.py
 ```
+
+The `work/` folder is the assistant's scratch space: one folder per job named `YYYY-MM-DD--slug/` for inputs, intermediates, and drafts in progress. It is allowed to be messy and is gitignored (except the README and the example placeholder), so job inputs never enter git history. Durable outputs graduate explicitly to a task, a repo doc, or their real channel. It is a more structured version of an ad-hoc working directory.
 
 ### The example tool surface
 
@@ -129,6 +134,19 @@ After generating, point your host at the console script. For Claude Code, add to
 ```
 
 Restart the host and the tools appear. Then read your generated `OPERATING-CONTRACT.md` into the session (or paste the generated `CLAUDE.md`), and the assistant operates under the contract.
+
+## Running posture: permissionless on purpose
+
+The guardrails live in the `OPERATING-CONTRACT.md`, not in the host's per-action permission prompts. That is the design: a written contract you can audit, instead of a confirmation dialog you click through. So the intended way to run your assistant is with prompts disabled, for a low-friction, rolling session. For Claude Code that is `--dangerously-skip-permissions`.
+
+Omnissiah can install two convenience aliases for this. It offers during interactive generation, or run `uv run omnissiah --install-aliases` (works alongside `--defaults` and `--answers`). The block it appends to your shell rc is idempotent and clearly marked:
+
+```sh
+alias claudex="claude --dangerously-skip-permissions"
+alias claudexrc='claude --rc --name "$(basename "$(pwd)")" --dangerously-skip-permissions'
+```
+
+`claudex` from inside your assistant repo starts a rolling session; `claudexrc` also exposes it for remote control. This is only safe because the contract holds. If you weaken the contract (allow direct sends, allow destructive git), you are removing the actual guardrail, so make that edit deliberately and keep it in git history.
 
 ## Non-interactive generation
 

@@ -26,6 +26,21 @@ Drop this into the host that runs {{ASSISTANT_NAME}} (paste into a project `CLAU
 - Concrete communication: no flattery, no approval language as a substitute for reporting actions, evidence, or results.
 - Durable context survives the chat: tasks to {{TASK_SYSTEM}}, durable decisions to repo docs.
 
+## Running posture
+
+The guardrails for {{ASSISTANT_NAME}} live in `OPERATING-CONTRACT.md`, not in the host's per-action permission prompts. That is the whole design: a written contract you can audit, instead of a confirmation dialog you click through. So the intended way to run {{ASSISTANT_NAME}} is with host permission prompts disabled, for a low-friction, rolling session.
+
+For Claude Code that means `--dangerously-skip-permissions`. These aliases make it routine (Omnissiah can append them to your shell rc during generation, or add them by hand):
+
+```sh
+# Run permissionless; the OPERATING-CONTRACT is the guardrail.
+alias claudex="claude --dangerously-skip-permissions"
+# Same, plus remote control: names the session after the current directory.
+alias claudexrc='claude --rc --name "$(basename "$(pwd)")" --dangerously-skip-permissions'
+```
+
+Run `claudex` from inside the {{ASSISTANT_SLUG}} repo for a normal rolling session, or `claudexrc` to also expose it for remote control. This posture is only safe because the contract holds: if you weaken the contract (for example, allow direct sends or destructive git), you are removing the actual guardrail, so make that edit deliberately and keep it in git history.
+
 ## Writing style
 
 Never use em dashes. They mark AI-generated writing and garble through some clipboard pipelines. Use commas, colons, semicolons, parentheses, or rewrite the sentence. This applies to every output: messages, drafts, notes, documents.

@@ -1,0 +1,21 @@
+# work/
+
+This is {{ASSISTANT_NAME}}'s working scratch space. When a job needs files (downloaded inputs, intermediates, a draft being built up, generated artifacts), the assistant creates one folder per job here and works inside it.
+
+## The convention
+
+- One folder per job, named `YYYY-MM-DD--slug/`, where the date is the day the job started and the slug is a short topic. Examples: `2026-06-23--invoice-triage/`, `2026-06-23--offsite-agenda/`.
+- Files inside can use plain names; the folder carries the date and topic.
+- This space is allowed to be messy. It is a workbench, not storage.
+
+## Lifecycle
+
+Everything under `work/` has a temporary lifecycle. It hangs out while a job is active, then either graduates or gets deleted. Graduation is explicit: when {{PRINCIPAL_NAME}} asks to keep something durable, the assistant copies it to its real home rather than leaving `work/` as accidental long-term storage.
+
+- A real commitment becomes a {{TASK_SYSTEM}} task.
+- A durable technical or system decision becomes a repo doc.
+- A finished deliverable goes out by its real channel (email, a shared drive, the destination {{PRINCIPAL_NAME}} names).
+
+## Why it is gitignored
+
+Everything here except this README is gitignored on purpose, so sensitive inputs (invoices, client material, personal documents) never enter git history. The folder itself is tracked only so the convention is visible. See the `## Persistent Context Targets` section of `OPERATING-CONTRACT.md` for how this fits the rest of the system.

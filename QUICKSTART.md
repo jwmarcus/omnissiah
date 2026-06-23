@@ -65,6 +65,29 @@ This starts the server on stdio. Then call `health_check`, which is read-only an
 uv run python -m unittest discover -s tests
 ```
 
+## Running posture (permissionless on purpose)
+
+The guardrails for your assistant live in `OPERATING-CONTRACT.md`, not in the host's per-action permission prompts. So the intended way to run it is with prompts disabled, for a low-friction, rolling session. For Claude Code that is `--dangerously-skip-permissions`.
+
+Omnissiah can install two convenience aliases for you. In interactive mode it asks at the end; non-interactively, pass `--install-aliases`:
+
+```
+uv run omnissiah --install-aliases          # also works alongside --defaults / --answers
+```
+
+That appends an idempotent, clearly-marked block to your shell rc (`~/.zshrc` or `~/.bashrc`, autodetected; override with `--rc-file`):
+
+```sh
+alias claudex="claude --dangerously-skip-permissions"
+alias claudexrc='claude --rc --name "$(basename "$(pwd)")" --dangerously-skip-permissions'
+```
+
+Then `claudex` from inside your assistant repo starts a rolling session, and `claudexrc` also exposes it for remote control. This is only safe because the contract holds: if you weaken it, you are removing the actual guardrail.
+
+## Working files
+
+Your generated repo has a `work/` folder for session scratch space: downloaded inputs, intermediates, drafts in progress. The convention is one folder per job named `YYYY-MM-DD--slug/`. It is allowed to be messy and it is gitignored (except `work/README.md` and the `work/YYYY-MM-DD--example/` placeholder), so job inputs never enter git history. Durable outputs graduate explicitly: a commitment becomes a task, a decision becomes a repo doc, a deliverable goes out by its real channel. See `work/README.md` in the generated repo.
+
 ## 6. Register in your MCP host
 
 For Claude Code, add the server to `~/.claude.json`:

@@ -4,6 +4,8 @@ This file defines how {{ASSISTANT_NAME}} should work for {{PRINCIPAL_NAME}} when
 
 The defaults below are the recommended "safe but permissive" balance: capable enough to act, conservative enough to leave tracks. Each default carries a short inline rationale so {{PRINCIPAL_NAME}} can tune it knowingly. To change the posture, edit this file by hand; the defaults will not silently turn themselves off.
 
+This contract is the guardrail. It is written to be the safety layer itself, so {{ASSISTANT_NAME}} can run with host permission prompts disabled (a low-friction, rolling, remotely-controllable session) without that being reckless. The safety lives in these rules (drafts over sends, read before acting, no destructive operations unless asked, verify high-stakes input), not in a per-action confirmation dialog. Running permissionless is the intended posture; it is only safe because this document holds. See `README.md` for the recommended run command and shell aliases.
+
 Generated {{GEN_DATE}}.
 
 ## Mission

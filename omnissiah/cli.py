@@ -16,6 +16,7 @@ Run:
 import argparse
 import datetime
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -43,6 +44,72 @@ DEFAULTS = {
 
 # Answer keys that carry boolean tool toggles.
 _BOOL_KEYS = ("tools_email", "tools_calendar", "tools_chat")
+
+# Convenience shell aliases. The whole point: the OPERATING-CONTRACT is the
+# guardrail, so the assistant is meant to run with host permission prompts off.
+# These make that the easy path. Written between guard markers so the block is
+# idempotent (re-running updates in place rather than duplicating).
+_ALIAS_BEGIN = "# >>> omnissiah aliases >>>"
+_ALIAS_END = "# <<< omnissiah aliases <<<"
+_ALIAS_BODY = (
+    "# Run your MCP host permissionless; the OPERATING-CONTRACT is the guardrail.\n"
+    'alias claudex="claude --dangerously-skip-permissions"\n'
+    "# Same, plus remote control: names the session after the current directory.\n"
+    "alias claudexrc='claude --rc --name \"$(basename \"$(pwd)\")\" "
+    '--dangerously-skip-permissions\'\n'
+)
+
+
+def alias_block() -> str:
+    """The full guarded alias block, including markers and a trailing newline."""
+    return f"{_ALIAS_BEGIN}\n{_ALIAS_BODY}{_ALIAS_END}\n"
+
+
+def detect_rc_file() -> Path:
+    """Pick the shell rc file to receive aliases.
+
+    Honors $SHELL (zsh -> ~/.zshrc, bash -> ~/.bashrc); otherwise falls back to
+    the first existing rc file, then ~/.profile.
+    """
+    shell = os.environ.get("SHELL", "")
+    home = Path.home()
+    if "zsh" in shell:
+        return home / ".zshrc"
+    if "bash" in shell:
+        return home / ".bashrc"
+    for name in (".zshrc", ".bashrc", ".profile"):
+        if (home / name).exists():
+            return home / name
+    return home / ".profile"
+
+
+def install_aliases(rc_path: Path) -> str:
+    """Write or update the guarded alias block in rc_path. Returns a status line.
+
+    Idempotent: if the block already exists it is replaced in place, so running
+    the generator repeatedly never duplicates the aliases.
+    """
+    block = alias_block()
+    text = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
+    if _ALIAS_BEGIN in text and _ALIAS_END in text:
+        pattern = re.compile(
+            re.escape(_ALIAS_BEGIN) + r".*?" + re.escape(_ALIAS_END) + r"\n?",
+            re.DOTALL,
+        )
+        new_text = pattern.sub(lambda _m: block, text, count=1)
+        action = "Updated"
+    else:
+        prefix = text if text == "" or text.endswith("\n") else text + "\n"
+        if prefix:
+            prefix += "\n"
+        new_text = prefix + block
+        action = "Added"
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text(new_text, encoding="utf-8")
+    return (
+        f"{action} omnissiah aliases (claudex, claudexrc) in {rc_path}. "
+        f"Run 'source {rc_path}' or open a new shell to use them."
+    )
 
 # Answer keys collected from a human or an --answers file (no derived fields).
 _ANSWER_KEYS = (
@@ -210,6 +277,10 @@ def _print_next_steps(output_dir: Path, context: dict) -> None:
         f'"{slug}" running: uv run {slug}-mcp'
     )
     print("Then edit OPERATING-CONTRACT.md and ASSISTANT-PROFILE.md to fit your actual setup.")
+    print(
+        "\nThe OPERATING-CONTRACT is the guardrail, so the assistant is meant to run with\n"
+        "host permission prompts off (see the Running posture section of CLAUDE.md)."
+    )
 
 
 def parse_args(argv) -> argparse.Namespace:
@@ -239,7 +310,50 @@ def parse_args(argv) -> argparse.Namespace:
         action="store_true",
         help="Write into a non-empty output directory.",
     )
+    parser.add_argument(
+        "--install-aliases",
+        action="store_true",
+        help="Append the claudex/claudexrc convenience aliases to your shell rc.",
+    )
+    parser.add_argument(
+        "--no-install-aliases",
+        action="store_true",
+        help="Skip the alias prompt and do not modify your shell rc.",
+    )
+    parser.add_argument(
+        "--rc-file",
+        default=None,
+        help="Shell rc file to receive aliases (default: autodetect ~/.zshrc or ~/.bashrc).",
+    )
     return parser.parse_args(argv)
+
+
+def _maybe_install_aliases(args) -> None:
+    """Install the convenience aliases when asked, or prompt in interactive mode.
+
+    Default is to leave the shell rc untouched: aliases install only when the
+    friend opts in (interactively or via --install-aliases). Modifying a shell
+    rc is a side effect outside the generated repo, so it is never silent.
+    """
+    if args.no_install_aliases:
+        return
+    rc_path = Path(args.rc_file).expanduser() if args.rc_file else detect_rc_file()
+    if args.install_aliases:
+        should = True
+    elif args.defaults or args.answers:
+        # Non-interactive run: do not touch the shell rc unless explicitly asked.
+        return
+    else:
+        print()
+        should = _ask_bool(
+            f"Add convenience shell aliases (claudex / claudexrc) to {rc_path}?",
+            False,
+        )
+    if should:
+        try:
+            print(install_aliases(rc_path))
+        except OSError as e:
+            print(f"Could not write aliases to {rc_path}: {e}", file=sys.stderr)
 
 
 def main(argv=None) -> int:
@@ -303,6 +417,7 @@ def main(argv=None) -> int:
         print(f"  {path}")
 
     _print_next_steps(output_dir, context)
+    _maybe_install_aliases(args)
     return 0
 
 

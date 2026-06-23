@@ -10,5 +10,9 @@ __pycache__/
 # Runtime state and logs (notes store lives here)
 var/
 
-# Session work products (temporary lifecycle, never durable storage)
-work/
+# Session work products (temporary lifecycle, never durable storage).
+# Ignore everything under work/ except the README that documents the convention,
+# so the workbench pattern stays visible but its contents never enter history.
+work/*
+!work/README.md
+!work/YYYY-MM-DD--example/
