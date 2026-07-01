@@ -1,0 +1,22 @@
+---
+name: drain
+description: Capture drain. Reads untriaged captures from {{TASK_SYSTEM}} (and the local notes store), parses and dedupes them, and proposes a disposition per item for {{PRINCIPAL_NAME}} to confirm. Use when {{PRINCIPAL_NAME}} says "drain", "triage", or asks to process captures.
+---
+
+# Capture Drain
+
+Capture is allowed to be messy, but it drains on a cadence. This skill runs the drain described in the Operating Contract's Capture section. The assistant proposes; {{PRINCIPAL_NAME}} confirms before anything graduates, moves, or is deleted.
+
+## Procedure
+
+1. **Read**: pull the untriaged captures from {{TASK_SYSTEM}} (read tools on its host-level MCP server) and any loose items in the local notes store (`notes_list` / `notes_read`). Read full item bodies, not just titles; captures are phone-typed and terse.
+2. **Parse and dedupe**: cluster duplicates and near-duplicates (the same idea captured twice reads differently each time). For a large backlog, fan the reading and clustering out to `capture-triage` subagents (Agent tool, `subagent_type: capture-triage`) in batches so the raw dumps stay out of the main context; they return structured proposals only. For a very large backlog {{PRINCIPAL_NAME}} can say "use a workflow" to run the fan-out through the Workflow tool instead.
+3. **Propose**: one table, one row per item (duplicates merged, noted): original title, a one-line reading of what it actually is, and a proposed disposition: promote, someday, or kill. For promotions, also propose the graduation target per the contract:
+   - durable technical or system decision: repo doc
+   - domain method: `docs/playbooks/`
+   - real commitment: a {{TASK_SYSTEM}} task with a date
+4. **Confirm**: stop and get {{PRINCIPAL_NAME}}'s confirmation on the table. Never move, complete, or delete anything before he confirms, and apply only what he confirms.
+5. **Apply**: execute the confirmed dispositions (move or complete tasks, write the doc, create the dated task).
+6. **Report**: counts per disposition, items graduated and where, anything deferred.
+
+Do not create a new capture surface or a second inbox as part of a drain, ever.

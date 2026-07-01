@@ -50,3 +50,7 @@ Be direct and concrete. Do not flatter {{PRINCIPAL_NAME}}, congratulate the assi
 ## Tools and diagnostics
 
 {{ASSISTANT_NAME}} exposes scoped tools through its MCP server. When any tool returns an error, or before troubleshooting setup, auth, or provider issues, call `health_check` first; it is read-only and safe. See `README.md` for the current tool list and `docs/integrations/SETUP.md` for wiring real providers.
+
+## Harness capabilities
+
+Contract workflows ship as harness-level entrypoints: `/brief` and `/drain` in `.claude/skills/`, and the read-only `capture-triage` subagent in `.claude/agents/`. They encode the contract, and under the permissionless running posture they are part of the guardrail, so treat edits to `.claude/` like edits to the contract: deliberate, reviewed, committed. Multi-agent workflows, host memory, hooks, and scheduled sessions are covered in the contract's Harness Capabilities section and `docs/harness-capabilities.md`.

@@ -1,0 +1,46 @@
+# Host Harness Capabilities
+
+Generated {{GEN_DATE}}. Modern agent hosts (Claude Code and equivalents) carry capabilities beyond the MCP tool surface: project instructions, skills, subagents, multi-agent workflows, persistent memory, hooks, and scheduled sessions. This doc maps them onto the {{ASSISTANT_NAME}} operating model: what ships enabled, what is deliberately left unconfigured, and the caveats. The Operating Contract's Harness Capabilities section is the behavioral summary; this is the reasoning.
+
+## Shipped in this repo
+
+### Project instructions (`CLAUDE.md`)
+
+The repo-root `CLAUDE.md` points the host at `OPERATING-CONTRACT.md` so any session opened in this repo loads the contract without relying on global config. The contract stays the single source of truth; `CLAUDE.md` is a loader, not a second contract.
+
+### Skills (`.claude/skills/`)
+
+Skills are versioned, auditable, opt-in workflow entrypoints, which is exactly the contract's preference for deterministic execution. Two contract workflows ship encoded:
+
+- `/brief`: the "what's on my plate" recipe. Read-only.
+- `/drain`: the capture drain. Propose-then-confirm; nothing moves without {{PRINCIPAL_NAME}}.
+
+Rule: a skill encodes a contract workflow; adding or changing one is a contract-level decision (state what will change, keep it in git history).
+
+### Subagents (`.claude/agents/`)
+
+`capture-triage`: a read-only agent used by `/drain` to fan out over large capture batches. The point is context hygiene (raw dumps stay out of the main session) and least privilege (its tool list starts with only the local notes read tools; extend it with your task system's read-only tools, never its mutation tools).
+
+## Available, deliberately not configured
+
+### Multi-agent workflows
+
+Strictly opt-in: {{PRINCIPAL_NAME}} asks for one explicitly ("use a workflow"). Good fit for big drains, repo-wide audits, or research sweeps. Workflow agents propose; mutations still go through the confirm gates above.
+
+### Persistent host memory
+
+Hosts that keep per-project memory across sessions should use it for assistant-facing operating facts only (preferences, corrections, environment quirks). Durable decisions still go in this repo; tasks still go in {{TASK_SYSTEM}}; secrets and sensitive material never go in memory.
+
+### Hooks
+
+Deterministic pre/post-tool automation fits the contract's style, but no hook ships by default: a hook is a config change that affects future assistant behavior, so it should be added deliberately, stated first, and kept in git history.
+
+### Scheduled sessions
+
+Local scheduled sessions can reach this MCP server and the {{TASK_SYSTEM}} MCP; cloud-hosted routines usually cannot reach local MCP servers at all. A scheduled morning `/brief` is the obvious candidate, local flavor only. Not shipped: recurring autonomous sessions run without {{PRINCIPAL_NAME}} watching, so they wait for an explicit ask.
+
+## Caveats
+
+- Deferred tool loading means a large MCP tool surface no longer costs context up front. The reason this tool surface stays narrow is audit and safety, not token cost; do not use cheap schemas as an argument to broaden it.
+- Skills and agent definitions are read by the host at session start; after editing one, a fresh session (or an explicit re-read) is needed for the change to take effect.
+- The permissionless running posture (see `CLAUDE.md`) makes these files part of the guardrail. Treat edits to `.claude/` like edits to the contract: deliberate, reviewed, committed.
