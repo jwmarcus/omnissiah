@@ -14,6 +14,13 @@ A short tour of the repo. Every line points at one directory or file.
 - `.gitignore`: keeps secrets, local state, and work products out of git.
 - `.env.example`: documented placeholders for provider credentials and config.
 
+## Harness surface
+
+- `.claude/skills/brief/SKILL.md`: `/brief`, the read-only "what's on my plate" briefing.
+- `.claude/skills/drain/SKILL.md`: `/drain`, the capture drain (propose-then-confirm).
+- `.claude/agents/capture-triage.md`: read-only triage subagent used by `/drain` for large batches.
+- `docs/harness-capabilities.md`: which host harness capabilities ship enabled, which are deliberately unconfigured, and why.
+
 ## MCP server
 
 - `{{ASSISTANT_SLUG}}/__init__.py`: package marker.

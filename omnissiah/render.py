@@ -39,6 +39,14 @@ _NAME_MAP = {
     "env.example": ".env.example",
 }
 
+# Leading path segments that map to dotted output directories. Like the
+# dotfile names above, this keeps hidden directories out of templates/ while
+# letting templates ship host-level config: templates/claude/skills/... lands
+# at .claude/skills/... in the generated repo.
+_SEGMENT_MAP = {
+    "claude": ".claude",
+}
+
 # Values that count as false for {{#IF}} evaluation. Everything else that is
 # non-empty is truthy. Booleans are handled directly.
 _FALSE_STRINGS = {"", "false", "0", "no", "off", "none"}
@@ -158,9 +166,12 @@ def output_relpath(template_relpath: Path, slug: str) -> Path:
         last = last[: -len(".tmpl")]
     parts[-1] = last
 
-    # Rewrite a leading pkg/ segment to the slug.
+    # Rewrite a leading pkg/ segment to the slug, and mapped leading segments
+    # (claude/ -> .claude/) to their dotted output directories.
     if parts[0] == "pkg":
         parts[0] = slug
+    elif len(parts) > 1 and parts[0] in _SEGMENT_MAP:
+        parts[0] = _SEGMENT_MAP[parts[0]]
 
     # Top-level dotfile remap: only when the path is a single top-level file.
     if len(parts) == 1 and parts[0] in _NAME_MAP:

@@ -1,0 +1,34 @@
+---
+name: brief
+description: Morning briefing / "what's on my plate". Combines open {{TASK_SYSTEM}} tasks with the wired {{ASSISTANT_NAME}} tools (calendar, inbox, notes) into one short structured summary. Use for unqualified priority questions ("what should I do", "what's today look like") or when {{PRINCIPAL_NAME}} asks for a briefing.
+---
+
+# Briefing
+
+Produce the operating picture for today. This is the contract's "what's on my plate" recipe made deterministic. The briefing is read-only: do not create tasks, drafts, or events from it unless {{PRINCIPAL_NAME}} asks.
+
+## Gather (run independent reads in parallel)
+
+- Open tasks from {{TASK_SYSTEM}} via its host-level MCP server (read tools only).
+{{#IF TOOLS_CALENDAR}}
+- Today's calendar via this server's calendar tools once they are wired (resolve the actual date in {{TIMEZONE}}; use exact dates, not "today", in the output).
+{{/IF}}
+{{#IF TOOLS_EMAIL}}
+- The email inbox via this server's email tools once they are wired. List the inbox itself, not just unread: anything sitting there is by definition unhandled.
+{{/IF}}
+- Open loops from the local notes store (`notes_list`, then `notes_read` for anything that looks live).
+
+If any {{ASSISTANT_NAME}} tool errors, call `health_check` first; it is read-only and safe.
+
+## Report
+
+One short structured summary, not an essay:
+
+{{#IF TOOLS_CALENDAR}}
+- **Calendar**: today's events in order, with times in {{TIMEZONE}}. Flag conflicts or missing prep.
+{{/IF}}
+- **Due or overdue**: {{TASK_SYSTEM}} tasks due today or past due.
+{{#IF TOOLS_EMAIL}}
+- **Inbox**: count plus one line per message that needs a decision or reply. Skip pure FYI noise but say it was skipped.
+{{/IF}}
+- **Open loops**: anything from the above with no scheduled time or task, as a candidate next action.
