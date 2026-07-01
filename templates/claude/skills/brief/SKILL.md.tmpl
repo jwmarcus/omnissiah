@@ -1,17 +1,21 @@
 ---
 name: brief
-description: Morning briefing / "what's on my plate". Combines open {{TASK_SYSTEM}} tasks with the wired {{ASSISTANT_NAME}} tools (calendar, inbox, notes) into one short structured summary. Use for unqualified priority questions ("what should I do", "what's today look like") or when {{PRINCIPAL_NAME}} asks for a briefing.
+description: Daily briefing / "what's on my plate". Orients {{PRINCIPAL_NAME}} on the next working block: what needs him, in what order, with everything else compressed. Use for unqualified priority questions ("what should I do", "what's today look like") or when {{PRINCIPAL_NAME}} asks for a briefing.
 ---
 
 # Briefing
 
-Produce the operating picture for today. This is the contract's "what's on my plate" recipe made deterministic. The briefing is read-only: do not create tasks, drafts, or events from it unless {{PRINCIPAL_NAME}} asks.
+Purpose: orient {{PRINCIPAL_NAME}} on the next working block. A briefing is judgment, not inventory; if an item does not change what {{PRINCIPAL_NAME}} does next, it does not belong in it.
+
+## Resolve the window first
+
+Resolve the current date AND time in {{TIMEZONE}}. Before about 3pm, brief the rest of today and flag tomorrow's first commitment. After about 3pm, brief tomorrow, plus anything still live tonight. Say which window the briefing covers.
 
 ## Gather (run independent reads in parallel)
 
 - Open tasks from {{TASK_SYSTEM}} via its host-level MCP server (read tools only).
 {{#IF TOOLS_CALENDAR}}
-- Today's calendar via this server's calendar tools once they are wired (resolve the actual date in {{TIMEZONE}}; use exact dates, not "today", in the output).
+- Calendar for the briefing window plus the following day, via this server's calendar tools once they are wired (conflicts only matter inside that horizon).
 {{/IF}}
 {{#IF TOOLS_EMAIL}}
 - The email inbox via this server's email tools once they are wired. List the inbox itself, not just unread: anything sitting there is by definition unhandled.
@@ -20,15 +24,20 @@ Produce the operating picture for today. This is the contract's "what's on my pl
 
 If any {{ASSISTANT_NAME}} tool errors, call `health_check` first; it is read-only and safe.
 
+## Verify before asserting
+
+- Never state a consequential fact (who is away and when, what time a meeting is, what was agreed) from a title, subject line, or snippet. Read the underlying record first, or leave the claim out.{{#IF TOOLS_EMAIL}} Beware quoted sent mail: in a reply, the quoted subject is {{PRINCIPAL_NAME}} addressing the other person, so "you" means them, not {{PRINCIPAL_NAME}}.{{/IF}}
+- Overdue {{TASK_SYSTEM}} dates are usually stale dates, not fires. For anything more than a couple of days overdue, check the task notes for evidence the work already moved or finished. Report "date looks stale" separately from "actually needs action"; never build urgency on an unverified due date.
+
 ## Report
 
-One short structured summary, not an essay:
+Lead with judgment, in this order, about 20 lines total:
 
+1. **Needs {{PRINCIPAL_NAME}}** (3 to 5 items, ranked): time-boxed commitments in the window, promises made to specific people, and same-day runs or deadlines. Each with the concrete next action, and each grounded in a record actually read.
 {{#IF TOOLS_CALENDAR}}
-- **Calendar**: today's events in order, with times in {{TIMEZONE}}. Flag conflicts or missing prep.
+2. **Calendar**: the window's events in order, with times in {{TIMEZONE}}. Flag conflicts and missing prep inside the horizon only.
 {{/IF}}
-- **Due or overdue**: {{TASK_SYSTEM}} tasks due today or past due.
-{{#IF TOOLS_EMAIL}}
-- **Inbox**: count plus one line per message that needs a decision or reply. Skip pure FYI noise but say it was skipped.
-{{/IF}}
-- **Open loops**: anything from the above with no scheduled time or task, as a candidate next action.
+3. **Owed and waiting**: replies {{PRINCIPAL_NAME}} owes people (name, ask, age) and things {{PRINCIPAL_NAME}} is waiting on. Verified items only.
+4. **Housekeeping**, one or two lines, counts only:{{#IF TOOLS_EMAIL}} stale or noise inbox items (archivable on ask);{{/IF}} {{TASK_SYSTEM}} tasks whose dates look stale (cleanup on ask). Do not enumerate them.
+
+Do not create tasks, drafts, or events from a briefing unless {{PRINCIPAL_NAME}} asks. The briefing is read-only.

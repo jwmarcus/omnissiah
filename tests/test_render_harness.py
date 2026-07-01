@@ -97,10 +97,13 @@ class HarnessTemplateRenderTests(unittest.TestCase):
         self.assertIn("docs/harness-capabilities.md", text)
 
     def test_brief_skill_honors_tool_toggles(self):
-        # Defaults enable calendar and email, so both sections should render.
+        # Defaults enable calendar and email, so both gated surfaces render.
         text = self._read(".claude/skills/brief/SKILL.md")
-        self.assertIn("Calendar", text)
-        self.assertIn("Inbox", text)
+        self.assertIn("**Calendar**", text)
+        self.assertIn("inbox", text)
+        # The judgment-first format always leads with the ranked section.
+        self.assertIn("**Needs Magos**", text)
+        self.assertIn("Verify before asserting", text)
 
     def test_brief_skill_drops_gated_sections_when_tools_off(self):
         context = build_context(
@@ -111,7 +114,10 @@ class HarnessTemplateRenderTests(unittest.TestCase):
             render_tree(_TEMPLATES_DIR, out, context, context["ASSISTANT_SLUG"])
             text = (out / ".claude/skills/brief/SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("**Calendar**", text)
-        self.assertNotIn("**Inbox**", text)
+        self.assertNotIn("inbox", text)
+        self.assertNotIn("quoted sent mail", text)
+        # The ungated spine survives the toggles.
+        self.assertIn("**Needs Magos**", text)
         self.assertIsNone(_LEFTOVER_RE.search(text))
 
 
