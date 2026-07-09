@@ -21,11 +21,15 @@ Rule: a skill encodes a contract workflow; adding or changing one is a contract-
 
 `capture-triage`: a read-only agent used by `/drain` to fan out over large capture batches. The point is context hygiene (raw dumps stay out of the main session) and least privilege (its tool list starts with only the local notes read tools; extend it with your task system's read-only tools, never its mutation tools).
 
+Fan-out is mergeable by contract, not by review: give every worker one shared preamble injected verbatim (facts, date, the house output rules), a strict per-item output schema with a stable join key, and a deterministic partition of the work, so N workers reunify with zero reconciliation. `capture-triage` and `/drain` show the shape.
+
 ## Available, deliberately not configured
 
 ### Multi-agent workflows
 
 Strictly opt-in: {{PRINCIPAL_NAME}} asks for one explicitly ("use a workflow"). Good fit for big drains, repo-wide audits, or research sweeps. Workflow agents propose; mutations still go through the confirm gates above.
+
+Two cautions for any fan-out. First, the served model is not guaranteed stable across a large concurrent burst: a host may substitute a different model under load and will not always tell you. Design merges to tolerate a mixed-model fleet (a strict schema is what makes that safe) and to degrade rather than break if one worker returns weaker output. Second, if you tier models deliberately, route by step difficulty and not by topic: keep the driver on the default model and reserve a stronger model for bounded, correctness-critical specialists, but never depend on one tier for correctness.
 
 ### Persistent host memory
 

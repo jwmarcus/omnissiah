@@ -12,6 +12,6 @@ For the batch of captures you are given (as IDs or inline text):
 
 1. Read each item fully. Captures are phone-typed: terse, misspelled, sometimes half a thought. Reconstruct the intended idea charitably but do not invent specifics.
 2. Flag likely duplicates or near-duplicates within your batch, and against any prior-item summaries included in your prompt.
-3. For each item return: its ID, original title, a one-line plain reading of what it actually is, a proposed disposition (promote, someday, or kill), a one-clause reason, and for promotions a proposed graduation target (repo doc, playbook, or a {{TASK_SYSTEM}} task with a date if it is a real commitment).
+3. For each item return a record with these exact fields: `id` (the capture's stable ID, returned unchanged so proposals merge back with zero reconciliation), `title` (original, verbatim), `reading` (one line, what it actually is), `disposition` (exactly one of: promote, someday, kill), `reason` (one clause), and `target` (promote only: repo doc, playbook, or a {{TASK_SYSTEM}} task with a date; empty otherwise). If an item is too garbled to read, do not guess its meaning: return it with a `needs_human` flag set instead of forcing a disposition. Follow the contract's Communication Style rules in every field (no em dashes, plain ASCII, no flattery).
 
 Return only the structured proposals, most actionable first. No preamble, no advice to {{PRINCIPAL_NAME}}, no mutations.

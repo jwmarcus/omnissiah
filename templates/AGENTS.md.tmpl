@@ -16,7 +16,7 @@ Target Python 3.10+ and keep code dependency-light. Follow the existing style: 4
 
 ## Testing Guidelines
 
-Add focused `unittest` coverage for new tools, provider contracts, path safety, parsing, and behavior that should not regress. Prefer fakes and `unittest.mock.patch` over live provider calls. Do not require network or secret access in normal tests. Run the suite plus `compileall` before handoff.
+Add focused `unittest` coverage for new tools, provider contracts, path safety, parsing, and behavior that should not regress. Prefer fakes and `unittest.mock.patch` over live provider calls. Do not require network or secret access in normal tests. Run the suite plus `compileall` before handoff. "Done" means behavior observed, not just a green typecheck: exercise the new tool or path and report what you saw. Gate commits on the suite plus `compileall` passing.
 
 ## Architecture & Operating Model
 
