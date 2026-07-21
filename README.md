@@ -60,8 +60,8 @@ jarvis/
   ASSISTANT-PROFILE.md           # who it serves and what it is
   SYSTEM-MAP.md                  # one line per file in the repo
   README.md                      # the generated repo's own readme
-  AGENTS.md                      # repo guidelines for coding assistants
-  CLAUDE.md                      # host guidance to paste into Claude Code / Codex
+  AGENTS.md                      # canonical coding-assistant instructions
+  CLAUDE.md                      # Claude Code adapter to AGENTS.md
   pyproject.toml                 # console script: jarvis-mcp
   .env.example                   # documented placeholders, no real secrets
   .gitignore                     # excludes .env, var/, secrets/, caches
@@ -133,7 +133,8 @@ After generating, point your host at the console script. For Claude Code, add to
 }
 ```
 
-Restart the host and the tools appear. Then read your generated `OPERATING-CONTRACT.md` into the session (or paste the generated `CLAUDE.md`), and the assistant operates under the contract.
+Restart the host and the tools appear. Open the generated repository so the
+host loads `AGENTS.md`, then read `OPERATING-CONTRACT.md` as directed there.
 
 ## Running posture: permissionless on purpose
 
@@ -204,7 +205,7 @@ The name is borrowed from the machine-god of the Adeptus Mechanicus, who is hono
 
 ## How it works under the hood
 
-The renderer is stdlib-only (no Jinja). Templates live in `templates/` and use plain `{{VAR}}` substitution plus line and inline `{{#IF TOOLS_*}} ... {{/IF}}` conditionals. The engine walks the template tree, so adding a `.tmpl` file is all it takes to add a generated file. If you want to change the generator itself, open this folder in Claude Code or Codex; `CLAUDE.md` here orients you, and `docs/dev/BUILD-SPEC.md` is the internal contract.
+The renderer is stdlib-only (no Jinja). Templates live in `templates/` and use plain `{{VAR}}` substitution plus line and inline `{{#IF TOOLS_*}} ... {{/IF}}` conditionals. The engine walks the template tree, so adding a `.tmpl` file is all it takes to add a generated file. If you want to change the generator itself, open this folder in Claude Code or Codex; `AGENTS.md` here orients you, and `docs/dev/BUILD-SPEC.md` is the internal contract.
 
 ## Conventions
 

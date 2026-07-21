@@ -88,7 +88,7 @@ server skeleton and SETUP doc truly need them.
   ASSISTANT-PROFILE.md
   OPERATING-CONTRACT.md
   AGENTS.md
-  CLAUDE.md                       # paste-into-host guidance + repo-local copy
+  CLAUDE.md                       # Claude Code adapter to AGENTS.md
   pyproject.toml
   .gitignore
   .env.example

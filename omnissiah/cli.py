@@ -279,7 +279,7 @@ def _print_next_steps(output_dir: Path, context: dict) -> None:
     print("Then edit OPERATING-CONTRACT.md and ASSISTANT-PROFILE.md to fit your actual setup.")
     print(
         "\nThe OPERATING-CONTRACT is the guardrail, so the assistant is meant to run with\n"
-        "host permission prompts off (see the Running posture section of CLAUDE.md)."
+        "host permission prompts off (see OPERATING-CONTRACT.md)."
     )
 
 

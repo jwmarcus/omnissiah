@@ -74,10 +74,19 @@ class HarnessTemplateRenderTests(unittest.TestCase):
             ".claude/agents/capture-triage.md",
             "docs/harness-capabilities.md",
             "OPERATING-CONTRACT.md",
+            "AGENTS.md",
             "CLAUDE.md",
         ):
             with self.subTest(rel=rel):
                 self.assertIsNone(_LEFTOVER_RE.search(self._read(rel)))
+
+    def test_claude_file_is_agents_adapter(self):
+        text = self._read("CLAUDE.md")
+        self.assertIn("@AGENTS.md", text)
+        self.assertLessEqual(len(text.splitlines()), 10)
+
+        agents = self._read("AGENTS.md")
+        self.assertIn("Read `OPERATING-CONTRACT.md`", agents)
 
     def test_triage_agent_tools_are_scoped_to_notes_reads(self):
         text = self._read(".claude/agents/capture-triage.md")

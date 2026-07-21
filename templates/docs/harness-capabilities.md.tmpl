@@ -4,9 +4,13 @@ Generated {{GEN_DATE}}. Modern agent hosts (Claude Code and equivalents) carry c
 
 ## Shipped in this repo
 
-### Project instructions (`CLAUDE.md`)
+### Project instructions (`AGENTS.md`)
 
-The repo-root `CLAUDE.md` points the host at `OPERATING-CONTRACT.md` so any session opened in this repo loads the contract without relying on global config. The contract stays the single source of truth; `CLAUDE.md` is a loader, not a second contract.
+The repo-root `AGENTS.md` points every supported host at
+`OPERATING-CONTRACT.md` so a session opened in this repo loads the contract
+without relying on global config. The contract stays the source of truth for
+assistant behavior. `CLAUDE.md` is only a compatibility adapter that imports
+`AGENTS.md`.
 
 ### Skills (`.claude/skills/`)
 
@@ -47,4 +51,4 @@ Local scheduled sessions can reach this MCP server and the {{TASK_SYSTEM}} MCP; 
 
 - Deferred tool loading means a large MCP tool surface no longer costs context up front. The reason this tool surface stays narrow is audit and safety, not token cost; do not use cheap schemas as an argument to broaden it.
 - Skills and agent definitions are read by the host at session start; after editing one, a fresh session (or an explicit re-read) is needed for the change to take effect.
-- The permissionless running posture (see `CLAUDE.md`) makes these files part of the guardrail. Treat edits to `.claude/` like edits to the contract: deliberate, reviewed, committed.
+- The permissionless running posture (see `OPERATING-CONTRACT.md`) makes these files part of the guardrail. Treat edits to `.claude/` like edits to the contract: deliberate, reviewed, committed.
